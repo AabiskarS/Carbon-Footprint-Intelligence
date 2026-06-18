@@ -33,6 +33,34 @@ function getGeminiClient() {
   return aiClient;
 }
 
+// Helper to retry Gemini operations on transient 503 / UNAVAILABLE / Rate Limit errors
+async function generateWithRetry<T>(callFn: () => Promise<T>, retries = 2, delayMs = 1500): Promise<T> {
+  let lastError: any;
+  for (let i = 0; i <= retries; i++) {
+    try {
+      return await callFn();
+    } catch (error: any) {
+      lastError = error;
+      const errorStr = error?.message || JSON.stringify(error) || String(error);
+      const isTransient = errorStr.includes("503") || 
+                          errorStr.includes("UNAVAILABLE") || 
+                          errorStr.includes("RESOURCE_EXHAUSTED") ||
+                          errorStr.includes("high demand") ||
+                          errorStr.includes("overloaded") ||
+                          errorStr.includes("limit");
+      
+      if (isTransient && i < retries) {
+        console.warn(`[GEMINI RETRY] Transient failure detected. Retrying attempt ${i + 1}/${retries} in ${delayMs}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        delayMs *= 2; // Exponential backoff
+      } else {
+        throw error;
+      }
+    }
+  }
+  throw lastError;
+}
+
 // 1. Intelligence analysis endpoint - produces bespoke advice & environmental analytics
 app.post("/api/analyze", async (req, res) => {
   try {
@@ -92,20 +120,34 @@ You must return a raw JSON response matching this EXACT schema:
 
 Ensure the output is 100% valid JSON only, without any Markdown backticks (\`\`\`) in the actual text. Return the JSON object directly.`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-      }
-    });
+    const response = await generateWithRetry(() =>
+      ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+        }
+      })
+    );
 
     const responseText = response.text || "{}";
     res.json({ ok: true, report: JSON.parse(responseText.trim()) });
 
   } catch (error: any) {
-    console.error("Analysis Error:", error);
-    res.status(500).json({ ok: false, error: error.message || "Failed to process environmental analysis." });
+    const errorStr = error?.message || JSON.stringify(error) || String(error);
+    const isDemandError = errorStr.includes("503") || errorStr.includes("UNAVAILABLE") || errorStr.includes("high demand") || errorStr.includes("overloaded");
+    
+    if (isDemandError) {
+      console.warn("Analysis Gemini API transient overload (handled gracefully):", errorStr);
+    } else {
+      console.error("Analysis Error:", error);
+    }
+    
+    const friendlyMessage = isDemandError 
+      ? "The Gemini AI model is currently experiencing temporarily high demand globally. Spikes in demand are usually temporary. We've seamlessly switched to our high-fidelity local calculator engine, so you can continue managing your carbon baseline and logs without interruption!" 
+      : (error.message || "Failed to process environmental analysis.");
+      
+    res.status(200).json({ ok: false, error: friendlyMessage, fallback: true });
   }
 });
 
@@ -143,19 +185,37 @@ Support your recommendations with real-world context (e.g. standard carbon inten
       parts: [{ text: m.text }]
     }));
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: chatContents,
-      config: {
-        systemInstruction: systemPrompt,
-      }
-    });
+    const response = await generateWithRetry(() =>
+      ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: chatContents,
+        config: {
+          systemInstruction: systemPrompt,
+        }
+      })
+    );
 
     res.json({ ok: true, text: response.text });
 
   } catch (error: any) {
-    console.error("Coaching Chat Error:", error);
-    res.status(500).json({ ok: false, error: error.message || "Carbon Coach was unable to generate a response." });
+    const errorStr = error?.message || JSON.stringify(error) || String(error);
+    const isDemandError = errorStr.includes("503") || errorStr.includes("UNAVAILABLE") || errorStr.includes("high demand") || errorStr.includes("overloaded");
+    
+    if (isDemandError) {
+      console.warn("Coaching Chat Gemini API transient overload (handled gracefully):", errorStr);
+    } else {
+      console.error("Coaching Chat Error:", error);
+    }
+    
+    if (isDemandError) {
+      return res.json({
+        ok: false,
+        error: "The AI agent service is currently experiencing extremely high demand. Spikes usually clear within a few minutes.",
+        text: "My apologies! The Gemini AI service is currently facing exceptionally high global demand, resulting in a temporary service interruption. Please try our Carbon Coach again in a few moments, or customize your activities and baseline settings using the dynamic workspace controls!"
+      });
+    }
+    
+    res.status(200).json({ ok: false, error: error.message || "Carbon Coach was unable to generate a response." });
   }
 });
 

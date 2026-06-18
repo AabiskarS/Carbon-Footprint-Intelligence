@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { motion } from 'motion/react';
 import { Activity, UserProfile, AnalysisReport, ChatMessage, ActivityCategory } from './types';
 import { INITIAL_ACTIVITIES, DEFAULT_PROFILE, generateLocalCarbonReport } from './utils';
 import AddActivityForm from './components/AddActivityForm';
@@ -21,6 +22,7 @@ import {
   HelpCircle,
   Lock,
   X,
+  Edit,
 } from 'lucide-react';
 
 export default function App() {
@@ -260,20 +262,42 @@ export default function App() {
           <div className="hidden md:flex items-center space-x-4">
             <div className="text-right border-r border-slate-100 pr-4">
               <span className="text-[9px] uppercase tracking-wider font-extrabold text-slate-400 block">Total intensity logged</span>
-              <span className="text-sm font-extrabold text-slate-800 font-mono">{totalEmissionsKg.toFixed(1)} kg CO2e</span>
+              <motion.span
+                key={totalEmissionsKg}
+                initial={{ opacity: 0, y: -4, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ type: "spring", stiffness: 320, damping: 22 }}
+                className="text-sm font-extrabold text-slate-800 font-mono block"
+              >
+                {totalEmissionsKg.toFixed(1)} kg CO2e
+              </motion.span>
             </div>
             <div className="text-right border-r border-slate-100 pr-4">
               <span className="text-[9px] uppercase tracking-wider font-extrabold text-slate-400 block">Annualized projection</span>
-              <span className="text-sm font-extrabold text-emerald-800 font-mono">{formattedCapitaTonnes} Tonnes/Yr</span>
+              <motion.span
+                key={formattedCapitaTonnes}
+                initial={{ opacity: 0, y: -4, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ type: "spring", stiffness: 320, damping: 22 }}
+                className="text-sm font-extrabold text-emerald-800 font-mono block"
+              >
+                {formattedCapitaTonnes} Tonnes/Yr
+              </motion.span>
             </div>
             <div className="text-right">
               <span className="text-[9px] uppercase tracking-wider font-extrabold text-slate-400 block">Environmental Class</span>
-              <span className={`text-xs font-bold font-mono px-2 py-0.5 rounded-full ${
-                (aiReport?.environmentalScore || 50) >= 80 ? 'text-emerald-700 bg-emerald-50' :
-                (aiReport?.environmentalScore || 50) >= 50 ? 'text-amber-700 bg-amber-50' : 'text-rose-700 bg-rose-50'
-              }`}>
+              <motion.span
+                key={aiReport?.environmentalScore || 'calibrating'}
+                initial={{ opacity: 0, y: -4, scale: 0.92 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ type: "spring", stiffness: 320, damping: 22 }}
+                className={`inline-block text-xs font-bold font-mono px-2 py-0.5 rounded-full ${
+                  (aiReport?.environmentalScore || 50) >= 80 ? 'text-emerald-700 bg-emerald-50' :
+                  (aiReport?.environmentalScore || 50) >= 50 ? 'text-amber-700 bg-amber-50' : 'text-rose-700 bg-rose-50'
+                }`}
+              >
                 {aiReport ? `Grade ${aiReport.environmentalScore}/100` : 'Calibrating'}
-              </span>
+              </motion.span>
             </div>
           </div>
         </div>
@@ -345,8 +369,18 @@ export default function App() {
             </button>
           </div>
 
-          <div className="text-xs text-slate-400 font-medium">
-            Active user profile: <strong className="text-slate-700">{profile.name}</strong>
+          <div className="text-xs text-slate-400 font-medium flex items-center space-x-1">
+            <span>Active user profile: </span>
+            <strong className="text-slate-700">{profile.name}</strong>
+            <button
+              onClick={() => setActiveTab('profile')}
+              className="p-1 text-slate-400 hover:text-emerald-600 hover:bg-slate-50 rounded-md transition-all cursor-pointer inline-flex items-center"
+              title="Edit Baseline Setup Profile"
+              aria-label="Edit Profile"
+              id="edit-profile-btn"
+            >
+              <Edit className="w-3 h-3" />
+            </button>
           </div>
         </div>
 
@@ -566,7 +600,7 @@ export default function App() {
       {/* High-fidelity Privacy and Data Security Modal */}
       {isPrivacyModalOpen && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs transition-all"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm transition-all"
           id="privacy-modal-overlay"
           onClick={() => setIsPrivacyModalOpen(false)}
         >

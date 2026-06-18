@@ -1,7 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
+import { motion } from 'motion/react';
 import { Activity, ActivityCategory } from '../types';
 import {
-  ResponsiveContainer,
   PieChart,
   Pie,
   Cell,
@@ -34,6 +34,47 @@ const CATEGORY_LABELS: Record<ActivityCategory, string> = {
   food: 'Diet & Meals',
   purchases: 'Lifestyle & Shopping',
 };
+
+// Robust ResizeObserver wrapper component to store canvas dimensions in state
+function ObservedChartContainer({ 
+  children, 
+  height = 210 
+}: { 
+  children: (width: number, height: number) => React.ReactNode;
+  height?: number;
+}) {
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    // Direct initial measurement
+    const initialWidth = containerRef.current.clientWidth;
+    setDimensions({ width: initialWidth, height });
+
+    const observer = new ResizeObserver((entries) => {
+      if (!entries || entries.length === 0) return;
+      const rect = entries[0].contentRect;
+      setDimensions({ width: rect.width || initialWidth, height });
+    });
+
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, [height]);
+
+  return (
+    <div ref={containerRef} className="w-full relative" style={{ height: `${height}px`, minWidth: 0 }}>
+      {dimensions.width > 0 && dimensions.height > 0 ? (
+        children(dimensions.width, dimensions.height)
+      ) : (
+        <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs">
+          Loading dimensions...
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function CarbonCharts({ activities }: CarbonChartsProps) {
   // 1. Calculate pie breakdown of total logged emissions
@@ -140,27 +181,29 @@ export default function CarbonCharts({ activities }: CarbonChartsProps) {
             {pieData.length === 0 ? (
               <p className="text-xs text-slate-400">No positive logging inputs to render distribution.</p>
             ) : (
-              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={55}
-                    outerRadius={80}
-                    paddingAngle={3}
-                    dataKey="value"
-                  >
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={CATEGORY_COLORS[entry.category]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{ border: 'none', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', fontSize: '11px', fontFamily: 'sans-serif' }}
-                    formatter={(value) => [`${value} kg CO2e`, 'Impact']}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+              <ObservedChartContainer height={210}>
+                {(width, height) => (
+                  <PieChart width={width} height={height}>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55}
+                      outerRadius={80}
+                      paddingAngle={3}
+                      dataKey="value"
+                    >
+                      {pieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={CATEGORY_COLORS[entry.category]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ border: 'none', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', fontSize: '11px', fontFamily: 'sans-serif' }}
+                      formatter={(value) => [`${value} kg CO2e`, 'Impact']}
+                    />
+                  </PieChart>
+                )}
+              </ObservedChartContainer>
             )}
           </div>
 
@@ -196,37 +239,50 @@ export default function CarbonCharts({ activities }: CarbonChartsProps) {
           </div>
 
           <div className="h-[210px] w-full">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-              <AreaChart data={trendData} margin={{ top: 5, right: 10, left: -25, bottom: 5 }}>
-                <defs>
-                  <linearGradient id="colorCumulative" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.15}/>
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.01}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                <Tooltip
-                  contentStyle={{ border: 'none', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', fontSize: '11px' }}
-                  labelStyle={{ fontWeight: 'bold', color: '#1e293b' }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="cumulative"
-                  name="Cumulative kg CO2"
-                  stroke="#10b981"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#colorCumulative)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            <ObservedChartContainer height={210}>
+              {(width, height) => (
+                <AreaChart width={width} height={height} data={trendData} margin={{ top: 5, right: 10, left: -25, bottom: 5 }}>
+                  <defs>
+                    <linearGradient id="colorCumulative" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.15}/>
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0.01}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    contentStyle={{ border: 'none', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', fontSize: '11px' }}
+                    labelStyle={{ fontWeight: 'bold', color: '#1e293b' }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="cumulative"
+                    name="Cumulative kg CO2"
+                    stroke="#10b981"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#colorCumulative)"
+                  />
+                </AreaChart>
+              )}
+            </ObservedChartContainer>
           </div>
 
           <div className="flex items-center justify-between text-xs pt-1 rounded-lg px-2 bg-slate-50 border border-slate-100">
             <span className="text-slate-400">Logged events: <strong className="text-slate-700">{activities.length}</strong></span>
-            <span className="text-slate-400">Total Sum: <strong className="text-emerald-600">{totalEmissionsKg.toFixed(1)} kg CO2e</strong></span>
+            <span className="text-slate-400 flex items-center space-x-1">
+              <span>Total Sum:</span>
+              <motion.strong
+                key={totalEmissionsKg}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                className="text-emerald-600 font-bold"
+              >
+                {totalEmissionsKg.toFixed(1)} kg CO2e
+              </motion.strong>
+            </span>
           </div>
         </div>
 
@@ -248,22 +304,24 @@ export default function CarbonCharts({ activities }: CarbonChartsProps) {
         </div>
 
         <div className="h-[180px] w-full">
-          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-            <BarChart data={benchmarkData} margin={{ top: 5, right: 10, left: -25, bottom: 5 }} layout="horizontal">
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-              <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'medium' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-              <Tooltip
-                contentStyle={{ border: 'none', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', fontSize: '11px' }}
-                formatter={(value) => [`${value} Tonnes`, 'Annual Footprint']}
-              />
-              <Bar dataKey="value" radius={[6, 6, 0, 0]} barSize={40}>
-                {benchmarkData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.fill} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          <ObservedChartContainer height={180}>
+            {(width, height) => (
+              <BarChart width={width} height={height} data={benchmarkData} margin={{ top: 5, right: 10, left: -25, bottom: 5 }} layout="horizontal">
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'medium' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <Tooltip
+                  contentStyle={{ border: 'none', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', fontSize: '11px' }}
+                  formatter={(value) => [`${value} Tonnes`, 'Annual Footprint']}
+                />
+                <Bar dataKey="value" radius={[6, 6, 0, 0]} barSize={40}>
+                  {benchmarkData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.fill} />
+                  ))}
+                </Bar>
+              </BarChart>
+            )}
+          </ObservedChartContainer>
         </div>
 
         <p className="text-[10.5px] text-slate-400 leading-relaxed text-center mt-2">

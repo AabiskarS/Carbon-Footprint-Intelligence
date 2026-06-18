@@ -12,24 +12,72 @@ interface AddActivityFormProps {
   }) => void;
 }
 
+interface TransportUnitConfig {
+  key: string;
+  label: string;
+  factorToMiles: number; // multiply custom input by this to get value in miles
+  defaultVal: number;
+  minVal: number;
+  maxVal: number;
+  step: number;
+}
+
+// Config mapping for various transport measurements & factors
+const TRANSPORT_UNITS: Record<string, TransportUnitConfig[]> = {
+  cars: [
+    { key: 'miles', label: 'Miles (mi)', factorToMiles: 1, defaultVal: 15, minVal: 1, maxVal: 500, step: 5 },
+    { key: 'km', label: 'Kilometers (km)', factorToMiles: 0.621371, defaultVal: 25, minVal: 1, maxVal: 800, step: 10 },
+    { key: 'hours', label: 'Driving Hours (hrs)', factorToMiles: 45, defaultVal: 1, minVal: 0.5, maxVal: 12, step: 0.5 },
+    { key: 'trips', label: 'Commute Trips (15mi avg)', factorToMiles: 15, defaultVal: 2, minVal: 1, maxVal: 30, step: 1 },
+  ],
+  transit: [
+    { key: 'miles', label: 'Miles (mi)', factorToMiles: 1, defaultVal: 10, minVal: 1, maxVal: 300, step: 5 },
+    { key: 'km', label: 'Kilometers (km)', factorToMiles: 0.621371, defaultVal: 16, minVal: 1, maxVal: 500, step: 10 },
+    { key: 'minutes', label: 'Transit Minutes', factorToMiles: 20 / 60, defaultVal: 30, minVal: 5, maxVal: 240, step: 5 },
+    { key: 'stops', label: 'Train/Bus Stops', factorToMiles: 0.75, defaultVal: 5, minVal: 1, maxVal: 60, step: 1 },
+  ],
+  flightShort: [
+    { key: 'flight-hours', label: 'Flight Hours (hrs)', factorToMiles: 400, defaultVal: 2, minVal: 0.5, maxVal: 5, step: 0.5 },
+    { key: 'miles', label: 'Miles (mi)', factorToMiles: 1, defaultVal: 350, minVal: 50, maxVal: 1500, step: 50 },
+    { key: 'km', label: 'Kilometers (km)', factorToMiles: 0.621371, defaultVal: 560, minVal: 80, maxVal: 2400, step: 100 },
+    { key: 'flights', label: 'Short Flights (qty)', factorToMiles: 450, defaultVal: 1, minVal: 1, maxVal: 5, step: 1 },
+  ],
+  flightLong: [
+    { key: 'flight-hours', label: 'Flight Hours (hrs)', factorToMiles: 500, defaultVal: 6, minVal: 3, maxVal: 18, step: 0.5 },
+    { key: 'miles', label: 'Miles (mi)', factorToMiles: 1, defaultVal: 1500, minVal: 500, maxVal: 10000, step: 100 },
+    { key: 'km', label: 'Kilometers (km)', factorToMiles: 0.621371, defaultVal: 2400, minVal: 800, maxVal: 16000, step: 200 },
+    { key: 'flights', label: 'Long Flights (qty)', factorToMiles: 2500, defaultVal: 1, minVal: 1, maxVal: 5, step: 1 },
+  ],
+};
+
 export default function AddActivityForm({ onAddActivity }: AddActivityFormProps) {
   const [category, setCategory] = useState<ActivityCategory>('transport');
   const [selectedSubtype, setSelectedSubtype] = useState<string>('car-gasoline');
   const [amount, setAmount] = useState<number>(15);
   const [customTitle, setCustomTitle] = useState<string>('');
+  const [selectedUnitKey, setSelectedUnitKey] = useState<string>('miles');
+
+  // Helper to determine the key of TRANSPORT_UNITS based on selected transport subtype
+  const getTransportUnitType = (subtype: string): string => {
+    if (subtype.startsWith('car-')) return 'cars';
+    if (subtype === 'public-transit') return 'transit';
+    if (subtype === 'flight-short') return 'flightShort';
+    if (subtype === 'flight-long') return 'flightLong';
+    return 'cars';
+  };
 
   // List subtypes based on category
   const subtypes = useMemo(() => {
     switch (category) {
       case 'transport':
         return [
-          { key: 'car-gasoline', label: 'Gasoline Car (per mile)', defaultVal: 15 },
-          { key: 'car-diesel', label: 'Diesel Car (per mile)', defaultVal: 15 },
-          { key: 'car-hybrid', label: 'Hybrid/Alternative Car (per mile)', defaultVal: 20 },
-          { key: 'car-electric', label: 'Electric Car (per mile)', defaultVal: 25 },
-          { key: 'public-transit', label: 'Public Bus/Train (per mile)', defaultVal: 10 },
-          { key: 'flight-short', label: 'Short Flight Express (per mile)', defaultVal: 350 },
-          { key: 'flight-long', label: 'Transcontinental Flight (per mile)', defaultVal: 1200 },
+          { key: 'car-gasoline', label: 'Gasoline Car' },
+          { key: 'car-diesel', label: 'Diesel Car' },
+          { key: 'car-hybrid', label: 'Hybrid/Alternative Car' },
+          { key: 'car-electric', label: 'Electric Car (EV)' },
+          { key: 'public-transit', label: 'Public Bus/Train/Metro' },
+          { key: 'flight-short', label: 'Short flight (<3 hrs)' },
+          { key: 'flight-long', label: 'Long-haul flight (>=3 hrs)' },
         ];
       case 'energy':
         return [
@@ -66,23 +114,57 @@ export default function AddActivityForm({ onAddActivity }: AddActivityFormProps)
                       cat === 'food' ? 'diet-standard' : 'waste-trash';
     setSelectedSubtype(available);
     
-    // Set a good default slider value for the subtype
-    const def = CARBON_FACTORS[available];
-    if (def) {
-      if (cat === 'transport') setAmount(25);
-      else if (cat === 'energy') setAmount(75);
-      else if (cat === 'food') setAmount(1);
-      else setAmount(1);
+    if (cat === 'transport') {
+      setSelectedUnitKey('miles');
+      setAmount(15);
+    } else {
+      const def = CARBON_FACTORS[available];
+      if (def) {
+        if (cat === 'energy') setAmount(75);
+        else if (cat === 'food') setAmount(1);
+        else setAmount(1);
+      }
     }
   };
+
+  // Get active unit options for transportation
+  const transportUnitOptions = useMemo(() => {
+    if (category !== 'transport') return [];
+    const type = getTransportUnitType(selectedSubtype);
+    return TRANSPORT_UNITS[type] || [];
+  }, [category, selectedSubtype]);
+
+  // Compute active unit object details
+  const activeUnitObj = useMemo(() => {
+    if (category === 'transport') {
+      const units = transportUnitOptions;
+      return units.find(u => u.key === selectedUnitKey) || units[0] || { key: 'miles', label: 'Miles (mi)', factorToMiles: 1, defaultVal: 15, minVal: 1, maxVal: 500, step: 5 };
+    }
+    // Standard static units from config
+    const factorObj = CARBON_FACTORS[selectedSubtype];
+    return {
+      key: factorObj?.units || 'units',
+      label: factorObj?.units || 'units',
+      factorToMiles: 1,
+      defaultVal: 1,
+      minVal: 1,
+      maxVal: 50,
+      step: 1
+    };
+  }, [category, selectedSubtype, selectedUnitKey, transportUnitOptions]);
 
   const activeFactorObj = useMemo(() => {
     return CARBON_FACTORS[selectedSubtype] || { factor: 0.1, units: 'qty', label: 'Miscellaneous' };
   }, [selectedSubtype]);
 
+  // Handle live emission metrics with conversion factor scaling
   const liveEmissions = useMemo(() => {
+    if (category === 'transport') {
+      const factorToMiles = activeUnitObj.factorToMiles || 1;
+      return amount * factorToMiles * activeFactorObj.factor;
+    }
     return amount * activeFactorObj.factor;
-  }, [amount, activeFactorObj]);
+  }, [amount, category, activeUnitObj, activeFactorObj]);
 
   const handlePlusActivity = (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,7 +173,7 @@ export default function AddActivityForm({ onAddActivity }: AddActivityFormProps)
       category,
       title: finalTitle,
       value: amount,
-      unit: activeFactorObj.units,
+      unit: category === 'transport' ? activeUnitObj.key : activeFactorObj.units,
       emissionsKg: liveEmissions,
     });
     setCustomTitle('');
@@ -176,11 +258,30 @@ export default function AddActivityForm({ onAddActivity }: AddActivityFormProps)
 
         {/* Subtype Dropdown */}
         <div>
-          <label className="block text-xs font-medium text-slate-500 mb-1.5">Activity Detail Type</label>
+          <label className="block text-xs font-medium text-slate-500 mb-1.5">Transportation Method</label>
           <select
             className="w-full text-slate-700 text-sm px-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200 focus:bg-white focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all cursor-pointer"
             value={selectedSubtype}
-            onChange={(e) => setSelectedSubtype(e.target.value)}
+            onChange={(e) => {
+              const newSubtype = e.target.value;
+              setSelectedSubtype(newSubtype);
+              
+              if (category === 'transport') {
+                const type = getTransportUnitType(newSubtype);
+                if (TRANSPORT_UNITS[type] && TRANSPORT_UNITS[type].length > 0) {
+                  const defaultUnit = TRANSPORT_UNITS[type][0];
+                  setSelectedUnitKey(defaultUnit.key);
+                  setAmount(defaultUnit.defaultVal);
+                }
+              } else {
+                const def = CARBON_FACTORS[newSubtype];
+                if (def) {
+                  if (category === 'energy') setAmount(75);
+                  else if (category === 'food') setAmount(1);
+                  else setAmount(1);
+                }
+              }
+            }}
           >
             {subtypes.map((sub) => (
               <option key={sub.key} value={sub.key}>
@@ -190,36 +291,85 @@ export default function AddActivityForm({ onAddActivity }: AddActivityFormProps)
           </select>
         </div>
 
+        {/* Dynamic Measurement Units for Transport */}
+        {category === 'transport' && transportUnitOptions.length > 0 && (
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1.5">Select Distance / Measurement Type</label>
+            <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-50 rounded-xl border border-slate-200">
+              {transportUnitOptions.map((unitOpt) => (
+                <button
+                  key={unitOpt.key}
+                  type="button"
+                  onClick={() => {
+                    setSelectedUnitKey(unitOpt.key);
+                    setAmount(unitOpt.defaultVal);
+                  }}
+                  className={`text-center text-[11px] py-2 px-1.5 rounded-lg font-medium transition-all cursor-pointer ${
+                    selectedUnitKey === unitOpt.key
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-800 hover:bg-slate-200'
+                  }`}
+                >
+                  {unitOpt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Live amount adjustment */}
         <div>
-          <div className="flex justify-between items-center mb-1">
+          <div className="flex justify-between items-center mb-2">
             <span className="text-xs font-medium text-slate-500">Usage Amount</span>
-            <span className="text-sm font-bold text-slate-800">
-              {amount} {activeFactorObj.units}
-            </span>
+            <div className="flex items-center space-x-1.5">
+              <input
+                type="number"
+                min="0.001"
+                step="any"
+                value={amount === 0 ? '' : amount}
+                placeholder="0"
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value);
+                  setAmount(isNaN(val) ? 0 : val);
+                }}
+                className="w-28 text-right bg-slate-50 hover:bg-slate-100/80 focus:bg-white text-sm font-extrabold text-slate-800 font-mono py-1 px-2 border border-slate-200 rounded-lg outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none transition-all"
+              />
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider font-mono bg-slate-100 px-2 py-1 rounded">
+                {category === 'transport' ? activeUnitObj.key : activeFactorObj.units}
+              </span>
+            </div>
           </div>
           <input
             type="range"
-            min={category === 'transport' ? 1 : category === 'energy' ? 5 : 1}
-            max={category === 'transport' ? Math.max(2000, amount) : category === 'energy' ? Math.max(1000, amount) : Math.max(20, amount)}
+            min={category === 'transport' ? activeUnitObj.minVal : (category === 'energy' ? 5 : 1)}
+            max={category === 'transport' ? Math.max(activeUnitObj.maxVal, amount) : (category === 'energy' ? Math.max(1000, amount) : Math.max(20, amount))}
             value={amount}
-            step={category === 'transport' ? 5 : category === 'energy' ? 5 : 1}
+            step={category === 'transport' ? activeUnitObj.step : (category === 'energy' ? 5 : 1)}
             onChange={(e) => setAmount(Number(e.target.value))}
             className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-emerald-500 outline-none"
           />
           <div className="flex justify-between text-[10px] text-slate-400 mt-1">
             <span>Min</span>
-            <span>Adjust slider to dial precise usage</span>
-            <span>Max</span>
+            <span>Type any amount above or adjust slider</span>
+            <span>Max auto-scales</span>
           </div>
         </div>
 
         {/* Responsive Carbon Output Badge */}
         <div className="bg-slate-50 border border-dotted border-slate-200 rounded-xl p-4 flex items-center justify-between">
-          <div>
+          <div className="max-w-[70%]">
             <span className="text-[11px] uppercase font-semibold text-slate-400 block tracking-wider">Calculated Carbon footprint</span>
-            <span className="text-slate-500 text-xs">
-              Factor: {activeFactorObj.factor} kg CO2e / {activeFactorObj.units}
+            <span className="text-slate-500 text-xs block leading-relaxed">
+              {category === 'transport' ? (
+                <>
+                  Unit Factor: <strong className="text-slate-700 font-semibold">{(activeFactorObj.factor * activeUnitObj.factorToMiles).toFixed(3)}</strong> kg CO2e / {activeUnitObj.key}
+                  <span className="text-[9.5px] text-slate-400 block mt-0.5 font-normal">
+                    Derived from base factor ({activeFactorObj.factor} kg CO2e/mile)
+                  </span>
+                </>
+              ) : (
+                `Factor: ${activeFactorObj.factor} kg CO2e / ${activeFactorObj.units}`
+              )}
             </span>
           </div>
           <div className="text-right">
@@ -244,3 +394,4 @@ export default function AddActivityForm({ onAddActivity }: AddActivityFormProps)
     </div>
   );
 }
+
