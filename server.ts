@@ -160,8 +160,8 @@ app.post("/api/chat", async (req, res) => {
     if (!ai) {
       return res.json({
         ok: false,
-        error: "GEMINI_API_KEY is missing. Connect your API key in AI Studio Secrets tab to chat with the Carbon Coach.",
-        text: "Hi there! I would love to guide you on your journey to carbon neutrality. To enable my fully intelligent Carbon Coach features, please make sure your `GEMINI_API_KEY` is added in **Settings > Secrets**. In the meantime, feel free to inspect your current carbon dashboard measurements!"
+        error: "GEMINI_API_KEY is missing. Please configuration your secure API keys to utilize advanced personalized Carbon Coach chat guidance.",
+        text: "Hi there! I would love to guide you on your journey to carbon neutrality. To enable my fully intelligent Carbon Coach features, please make sure your `GEMINI_API_KEY` is configured in the environment setup. In the meantime, feel free to inspect your current carbon dashboard measurements!"
       });
     }
 

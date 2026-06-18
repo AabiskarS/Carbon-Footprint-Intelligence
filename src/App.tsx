@@ -307,7 +307,7 @@ export default function App() {
       {apiNotice && (
         <div className="bg-indigo-50 border-b border-indigo-100 py-2.5 px-4 text-center text-xs text-indigo-700 flex items-center justify-center space-x-2">
           <Info className="w-4 h-4 shrink-0 text-indigo-500" />
-          <span>{apiNotice} Add your <strong>GEMINI_API_KEY</strong> in the Secrets menu to use advanced tailor-made AI.</span>
+          <span>{apiNotice} Configure your primary <strong>GEMINI_API_KEY</strong> environment variable to deploy advanced bespoke AI.</span>
           <button onClick={() => setApiNotice(null)} className="font-bold underline ml-2 cursor-pointer hover:text-indigo-900">Dismiss</button>
         </div>
       )}
@@ -584,7 +584,7 @@ export default function App() {
       <footer className="bg-white border-t border-slate-100 py-6 mt-12 text-center text-xs text-slate-400">
         <p className="font-semibold uppercase tracking-wider text-[10px] text-slate-500 mb-1">Carbon Footprint Intelligence System</p>
         <p>
-          A full-stack Climate Strategy application utilizing server-side Gemini 3.5 modeling.{' '}
+          A full-stack Climate Strategy application hand-crafted by <strong className="text-slate-600 font-medium">Aabiskar Sharma</strong> utilizing server-side Gemini 3.5 modeling.{' '}
           <button
             onClick={() => setIsPrivacyModalOpen(true)}
             className="text-emerald-600 hover:text-emerald-700 font-semibold underline underline-offset-2 ml-1 cursor-pointer transition-all inline-flex items-center space-x-1"
@@ -594,7 +594,7 @@ export default function App() {
             <span>Privacy & Local Data</span>
           </button>
         </p>
-        <p className="mt-1">© {new Date().getFullYear()} CFI Climate Engine. Verified Carbon offsets computed strictly under Defra emission factors.</p>
+        <p className="mt-1">© {new Date().getFullYear()} CFI Climate Engine. Handcrafted with care by Aabiskar Sharma. Verified Carbon offsets computed strictly under Defra emission factors.</p>
       </footer>
 
       {/* High-fidelity Privacy and Data Security Modal */}
