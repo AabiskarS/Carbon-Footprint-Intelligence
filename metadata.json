@@ -1,0 +1,6 @@
+{
+  "name": "Carbon Footprint Intelligence",
+  "description": "An AI-powered environmental analytics dashboard that calculates, visualizes, and optimizes personal carbon footprint and emissions, guided by custom Gemini-driven offset strategies.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
