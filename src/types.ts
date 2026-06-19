@@ -1,23 +1,29 @@
-export type ActivityCategory = 'transport' | 'energy' | 'food' | 'purchases';
+export type ActivityCategory = 'transport' | 'energy';
+
+export interface Facility {
+  id: string;
+  name: string;
+  address: string;
+  type: 'office' | 'warehouse' | 'vehicle-fleet' | string;
+}
+
+export interface Company {
+  name: string;
+  industrySector: string;
+  employeeCount: number;
+  reportingYear: number;
+  facilities: Facility[];
+}
 
 export interface Activity {
   id: string;
   date: string;
   category: ActivityCategory;
+  facilityId: string; // linked to a company facility
   title: string;
   value: number; // raw value input
-  unit: string;  // e.g. "miles", "kWh", "meals", "USD"
+  unit: string;  // e.g. "miles", "kWh"
   emissionsKg: number; // calculated CO2 in kilograms
-}
-
-export interface UserProfile {
-  name: string;
-  householdSize: number;
-  electricityState: 'standard' | 'green' | 'solar';
-  carType: 'none' | 'electric' | 'hybrid' | 'gasoline' | 'diesel';
-  weeklyCommuteMiles: number;
-  dietaryPreference: 'vegan' | 'vegetarian' | 'low-meat' | 'standard' | 'heavy-meat';
-  annualHeatingSource: 'gas' | 'electric' | 'heat-pump' | 'oil';
 }
 
 export interface ReductionAction {

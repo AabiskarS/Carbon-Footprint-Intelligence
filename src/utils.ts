@@ -1,4 +1,4 @@
-import { Activity, UserProfile, AnalysisReport } from './types';
+import { Activity, Company, AnalysisReport } from './types';
 
 // Pre-seeded carbon log items to construct instant premium visuals
 export const INITIAL_ACTIVITIES: Activity[] = [
@@ -6,61 +6,58 @@ export const INITIAL_ACTIVITIES: Activity[] = [
     id: 'seed-1',
     date: '2026-06-15',
     category: 'transport',
-    title: 'Commuted to secondary campus site',
-    value: 65,
+    facilityId: 'delivery-fleet',
+    title: 'Porto logistics team delivery van route (Diesel fleet)',
+    value: 620,
     unit: 'miles',
-    emissionsKg: 11.7, // 65 * 0.18 (hybrid)
+    emissionsKg: 217.0, // 620 * 0.35 (diesel)
   },
   {
     id: 'seed-2',
-    date: '2026-06-14',
-    category: 'food',
-    title: 'Weekly grocery beef BBQ steak meals',
-    value: 3,
-    unit: 'meals',
-    emissionsKg: 10.2, // 3 * 3.4
+    date: '2026-06-12',
+    category: 'energy',
+    facilityId: 'lisbon-warehouse',
+    title: 'Lisbon Distribution Center refrigeration power load',
+    value: 1450,
+    unit: 'kWh',
+    emissionsKg: 609.0, // 1450 * 0.42 (standard)
   },
   {
     id: 'seed-3',
-    date: '2026-06-12',
+    date: '2026-06-10',
     category: 'energy',
-    title: 'Household base monthly energy bill',
-    value: 240,
+    facilityId: 'porto-office',
+    title: 'Porto HQ certified renewable server power block',
+    value: 850,
     unit: 'kWh',
-    emissionsKg: 100.8, // 240 * 0.42
+    emissionsKg: 42.5, // 850 * 0.05 (green)
   },
   {
     id: 'seed-4',
-    date: '2026-06-10',
-    category: 'purchases',
-    title: 'Imported wool winter sweater garment',
-    value: 1,
-    unit: 'items',
-    emissionsKg: 14.2, // 1 * 14.2
-  },
-  {
-    id: 'seed-5',
     date: '2026-06-08',
     category: 'transport',
-    title: 'Weekend flight terminal commute (Short flight)',
-    value: 450,
+    facilityId: 'porto-office',
+    title: 'Executive team travel - Porto to Lisbon high-speed rail',
+    value: 180,
     unit: 'miles',
-    emissionsKg: 108.0, // 450 * 0.24
+    emissionsKg: 21.6, // 180 * 0.12 (transit)
   }
 ];
 
-export const DEFAULT_PROFILE: UserProfile = {
-  name: 'Eco Traveler',
-  householdSize: 2,
-  electricityState: 'standard',
-  carType: 'hybrid',
-  weeklyCommuteMiles: 80,
-  dietaryPreference: 'low-meat',
-  annualHeatingSource: 'gas',
+export const DEFAULT_PROFILE: Company = {
+  name: 'Sabor de Portugal Distribuição',
+  industrySector: 'Logistics & Distribution',
+  employeeCount: 22,
+  reportingYear: 2026,
+  facilities: [
+    { id: 'porto-office', name: 'Porto Head Office', address: 'Rua de Santa Catarina 42, Porto', type: 'office' },
+    { id: 'lisbon-warehouse', name: 'Lisbon Distribution Center', address: 'Avenida da República 102, Lisboa', type: 'warehouse' },
+    { id: 'delivery-fleet', name: 'Delivery Fleet (Vans)', address: 'Zona Industrial da Maia, Porto', type: 'vehicle-fleet' }
+  ]
 };
 
 // Generates highly realistic carbon audit insights based on user state to act as a resilient local processor
-export function generateLocalCarbonReport(activities: Activity[], profile: UserProfile): AnalysisReport {
+export function generateLocalCarbonReport(activities: Activity[], profile: Company): AnalysisReport {
   const totalEmissionsKg = activities.reduce((sum, act) => sum + act.emissionsKg, 0);
   
   // Calculate category totals
@@ -79,24 +76,29 @@ export function generateLocalCarbonReport(activities: Activity[], profile: UserP
     }
   });
 
-  // Calculate a contextual grade from 0 to 100
-  // Safe world target averages around 2 tonnes per year (2000kg).
-  // Assuming short logs, scale them.
-  const scaledAnnualKg = Math.max(800, (totalEmissionsKg / 14) * 365 || 4800);
-  let environmentalScore = Math.max(10, Math.round(100 - (scaledAnnualKg / 150)));
+  // Calculate environmentalScore
+  // Scale total logs to annual. For SME, baseline average ranges from 15 - 50 tonnes annually.
+  const scaledAnnualKg = Math.max(1000, (totalEmissionsKg / 14) * 365 || 12000);
+  const employeeNormalizedKg = scaledAnnualKg / (profile.employeeCount || 10);
   
-  // Adjust based on green profile choices
-  if (profile.electricityState === 'green') environmentalScore = Math.min(99, environmentalScore + 12);
-  if (profile.electricityState === 'solar') environmentalScore = Math.min(99, environmentalScore + 18);
-  if (profile.carType === 'electric') environmentalScore = Math.min(99, environmentalScore + 14);
-  if (profile.dietaryPreference === 'vegan') environmentalScore = Math.min(99, environmentalScore + 15);
+  // Score based on tonnes per employee (lower is better, e.g., below 3t / employee is amazing)
+  let environmentalScore = Math.max(15, Math.round(100 - (employeeNormalizedKg / 80)));
+  
+  // Bonus points for having green properties or smaller footprint:
+  const officeCount = profile.facilities.filter(f => f.type === 'office').length;
+  const isLargeCompany = profile.employeeCount > 50;
+  
+  if (!isLargeCompany) environmentalScore = Math.min(99, environmentalScore + 8);
+  if (officeCount > 0) environmentalScore = Math.min(99, environmentalScore + 4);
 
-  const targetAnnualForecastKg = scaledAnnualKg * 0.65; // 35% targeted savings
+  const targetAnnualForecastKg = scaledAnnualKg * 0.70; // 30% targeted savings
+
+  const sectorLabel = profile.industrySector || 'General SME';
 
   return {
     environmentalScore,
     primaryCulprit,
-    benchmarkingText: `Your calculated greenhouse intensity matches approximately ${(scaledAnnualKg / 1000).toFixed(1)} tonnes CO2e/year. This is well below the US per-capita average of 16 tonnes, but still highlights avenues to contract emissions closer to the world limit of 2 tonnes.`,
+    benchmarkingText: `Your company's projected carbon footprint stands at ${(scaledAnnualKg / 1000).toFixed(1)} tonnes CO2e/year. This translates to ${(employeeNormalizedKg / 1000).toFixed(2)} tonnes per employee. Relative to average European Union companies of similar scale in ${sectorLabel}, you are highly optimized! Your active facilities (${profile.facilities.map(f => f.name).join(', ')}) are contributing directly to this baseline logging.`,
     projections: {
       annualForecastKg: Math.round(scaledAnnualKg),
       targetAnnualForecastKg: Math.round(targetAnnualForecastKg),
@@ -105,54 +107,54 @@ export function generateLocalCarbonReport(activities: Activity[], profile: UserP
       {
         priority: 'HIGH',
         category: 'Transport',
-        recommendation: profile.carType !== 'electric' ? 'Adopt smart carpooling or explore upgrading to an electric vehicle to escape high transit constants.' : 'Increase bicycle commute cycles for short trips under 3 miles.',
-        estimatedSavingKgYr: Math.round(scaledAnnualKg * 0.18),
+        recommendation: `Transition diesel distribution vans active in your fleet to premium electric vehicle fleets (EV) to decrease route-delivery emission constants.`,
+        estimatedSavingKgYr: Math.round(scaledAnnualKg * 0.15),
         feasibility: 'Medium',
       },
       {
         priority: 'HIGH',
-        category: 'Home Energy',
-        recommendation: profile.electricityState !== 'green' ? 'Reach out to your municipality grid provider to toggle your energy source to Certified 100% Green Wind/Solar.' : 'Install smart thermostats to limit passive night heating loads.',
-        estimatedSavingKgYr: Math.round(scaledAnnualKg * 0.12),
+        category: 'Energy Intensity',
+        recommendation: `Conduct professional HVAC energy efficiency audits at your warehouse and offices to eliminate passive nocturnal leakage.`,
+        estimatedSavingKgYr: Math.round(scaledAnnualKg * 0.10),
         feasibility: 'Easy',
       },
       {
         priority: 'MEDIUM',
-        category: 'Food Choice',
-        recommendation: profile.dietaryPreference !== 'vegan' ? 'Establish three "Meatless Mondays" weekly, replacing heavy steaks with legume or lentil plant proteins.' : 'Focus on locally sourced seasonal agriculture to cut post-production transport variables.',
+        category: 'Supply Chain',
+        recommendation: `Establish strategic vendor compliance standards requiring verified carbon-neutral practices from logistics subcontractors.`,
         estimatedSavingKgYr: Math.round(scaledAnnualKg * 0.08),
-        feasibility: 'Easy',
+        feasibility: 'Medium',
       },
       {
         priority: 'LOW',
-        category: 'Shopping Lifestyle',
-        recommendation: 'Offset electronic hardware upgrades by purchasing certified refurbished gear instead of fresh high-impact consumer units.',
-        estimatedSavingKgYr: 150,
-        feasibility: 'Challenging',
+        category: 'Offset Programs',
+        recommendation: 'Procure regional solar/wind power purchasing agreements (PPAs) to shield facilities from localized standard coal power sources.',
+        estimatedSavingKgYr: Math.round(scaledAnnualKg * 0.05),
+        feasibility: 'Easy',
       }
     ],
     offsetCalendar: [
       {
         day: 'Day 1 - 5',
-        action: 'Perform a draft audit of your household thermal leaks & seal window cracks.',
-        impact: 'Reduces passive HVAC heating and cooling overhead by 7-10% almost instantly.',
+        action: 'Configure virtual workspace models to reduce daily employee commute emissions.',
+        impact: 'Saves up to 10-15% on transport-related employee transit immediately.',
       },
       {
         day: 'Day 6 - 15',
-        action: 'Transition commuting journeys equal to or less than 2 miles to carbonless pedestrian walking.',
-        impact: 'Establishes sustainable habits while scaling 50kg carbon off the road annually.',
+        action: 'Transition office facility illumination arrays to commercial energy-efficient LED configurations.',
+        impact: 'Minimizes basic grid electricity consumption by 850+ kWh annually per site.',
       },
       {
         day: 'Day 16 - 25',
-        action: 'Integrate organic plant protein alternatives to beef, starting with soy blocks or chickpeas.',
-        impact: 'Saves up to 2.8kg greenhouse gas output per meal according to DEFRA coefficients.',
+        action: 'Install programmable smart commercial thermostats to automatically down-scale weekend energy consumption.',
+        impact: 'Prevents passive weekend power drain and curtails unnecessary baseline heat output.',
       },
       {
         day: 'Day 26 - 30',
-        action: 'Enroll in gold-standard verified forest preservation credits to cover non-compressible flight loads.',
-        impact: 'Achieves verified neutral certification for inevitable transcontinental air trips.',
+        action: 'Engage with carbon offset brokers representing certified local agro-forestry carbon-sequestration projects.',
+        impact: 'Enables 100% verified certification for unavoidable corporate operations.',
       }
     ],
-    executiveSummary: `Through smart changes like energy efficiency adjustments, vehicle pool carpooling, and localized diet optimizations, ${profile.name || 'User'} can offset up to ${( (scaledAnnualKg - targetAnnualForecastKg) / 1000).toFixed(2)} tonnes of CO2 gas emissions this calendar year.`
+    executiveSummary: `Through facility energy efficiency optimization, green electric fleet adoption, and active virtual commute routing, ${profile.name || 'your company'} can offset up to ${((scaledAnnualKg - targetAnnualForecastKg) / 1000).toFixed(1)} tonnes of greenhouse gas emissions this calendar year.`
   };
 }

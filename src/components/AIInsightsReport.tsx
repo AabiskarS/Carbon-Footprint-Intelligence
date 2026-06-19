@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AnalysisReport, Activity, UserProfile } from '../types';
+import { AnalysisReport, Activity, Company } from '../types';
 import { Sparkles, Calendar, TrendingDown, Award, Lightbulb, AlertCircle, RefreshCw, Key } from 'lucide-react';
 
 interface AIInsightsReportProps {

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChatMessage, Activity, UserProfile } from '../types';
+import { ChatMessage, Activity, Company } from '../types';
 import { Send, Bot, User, Sparkles, HelpCircle, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
@@ -8,7 +8,7 @@ interface AICarbonCoachProps {
   loading: boolean;
   onSendMessage: (text: string) => void;
   activities: Activity[];
-  profile: UserProfile;
+  profile: Company;
 }
 
 export default function AICarbonCoach({ messages, loading, onSendMessage, activities, profile }: AICarbonCoachProps) {

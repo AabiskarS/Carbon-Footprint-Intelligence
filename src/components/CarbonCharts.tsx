@@ -24,15 +24,11 @@ interface CarbonChartsProps {
 const CATEGORY_COLORS: Record<ActivityCategory, string> = {
   transport: '#f59e0b', // Amber
   energy: '#0ea5e9',    // Sky
-  food: '#10b981',      // Emerald
-  purchases: '#8b5cf6', // Indigo
 };
 
 const CATEGORY_LABELS: Record<ActivityCategory, string> = {
-  transport: 'Transport',
-  energy: 'Household Energy',
-  food: 'Diet & Meals',
-  purchases: 'Lifestyle & Shopping',
+  transport: 'Transport Fleet & Travel',
+  energy: 'Facility Energy Consumption',
 };
 
 // Robust ResizeObserver wrapper component to store canvas dimensions in state
@@ -82,8 +78,6 @@ export default function CarbonCharts({ activities }: CarbonChartsProps) {
     const totals: Record<ActivityCategory, number> = {
       transport: 0,
       energy: 0,
-      food: 0,
-      purchases: 0,
     };
 
     activities.forEach((act) => {

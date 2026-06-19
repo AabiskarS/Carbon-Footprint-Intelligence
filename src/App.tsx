@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Activity, UserProfile, AnalysisReport, ChatMessage, ActivityCategory } from './types';
+import { Activity, Company, AnalysisReport, ChatMessage, ActivityCategory } from './types';
 import { INITIAL_ACTIVITIES, DEFAULT_PROFILE, generateLocalCarbonReport } from './utils';
 import AddActivityForm from './components/AddActivityForm';
 import ProfileForm from './components/ProfileForm';
@@ -23,6 +23,7 @@ import {
   Lock,
   X,
   Edit,
+  Building,
 } from 'lucide-react';
 
 export default function App() {
@@ -32,7 +33,7 @@ export default function App() {
     return saved ? JSON.parse(saved) : INITIAL_ACTIVITIES;
   });
 
-  const [profile, setProfile] = useState<UserProfile>(() => {
+  const [profile, setProfile] = useState<Company>(() => {
     const saved = localStorage.getItem('CARBON_PROFILE');
     return saved ? JSON.parse(saved) : DEFAULT_PROFILE;
   });
@@ -90,13 +91,12 @@ export default function App() {
   const statsBreakdown = {
     transport: activities.filter(a => a.category === 'transport').reduce((s, a) => s + a.emissionsKg, 0),
     energy: activities.filter(a => a.category === 'energy').reduce((s, a) => s + a.emissionsKg, 0),
-    food: activities.filter(a => a.category === 'food').reduce((s, a) => s + a.emissionsKg, 0),
-    purchases: activities.filter(a => a.category === 'purchases').reduce((s, a) => s + a.emissionsKg, 0),
   };
 
   // 3. User Handlers
   const handleAddActivity = (newAct: {
     category: ActivityCategory;
+    facilityId: string;
     title: string;
     value: number;
     unit: string;
@@ -370,7 +370,7 @@ export default function App() {
           </div>
 
           <div className="text-xs text-slate-400 font-medium flex items-center space-x-1">
-            <span>Active user profile: </span>
+            <span>Active enterprise baseline: </span>
             <strong className="text-slate-700">{profile.name}</strong>
             <button
               onClick={() => setActiveTab('profile')}
@@ -393,7 +393,7 @@ export default function App() {
               
               {/* Left Column: Logging Form and Quick Presets */}
               <div className="lg:col-span-4 space-y-6">
-                <AddActivityForm onAddActivity={handleAddActivity} />
+                <AddActivityForm facilities={profile.facilities || []} onAddActivity={handleAddActivity} />
                 
                 {/* Informative educational sidebar card */}
                 <div className="bg-indigo-900 text-white rounded-2xl p-5 shadow-xs relative overflow-hidden">
@@ -435,10 +435,8 @@ export default function App() {
                         onChange={(e) => setHistoryFilter(e.target.value as any)}
                       >
                         <option value="all">All Sectors</option>
-                        <option value="transport">Transport</option>
-                        <option value="energy">Household Energy</option>
-                        <option value="food">Diet & Meals</option>
-                        <option value="purchases">Lifestyle & Shopping</option>
+                        <option value="transport">Transport Fleet</option>
+                        <option value="energy">Facility Energy</option>
                       </select>
 
                       <button
@@ -463,7 +461,7 @@ export default function App() {
                         <thead>
                           <tr className="bg-slate-50 text-slate-400 uppercase font-mono tracking-wider text-[10px] border-b border-slate-100">
                             <th className="py-3 px-4 font-semibold">Date</th>
-                            <th className="py-3 px-4 font-semibold">Activity Title</th>
+                            <th className="py-3 px-4 font-semibold">Activity / Facility Workspace</th>
                             <th className="py-3 px-4 font-semibold">Category</th>
                             <th className="py-3 px-4 font-semibold text-right">Volume Utilized</th>
                             <th className="py-3 px-4 font-semibold text-right">Carbon (kg CO2e)</th>
@@ -471,38 +469,45 @@ export default function App() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
-                          {filteredActivities.map((act) => (
-                            <tr key={act.id} className="hover:bg-slate-50/50 transition-colors">
-                              <td className="py-2.5 px-4 text-slate-500 font-mono">{act.date}</td>
-                              <td className="py-2.5 px-4 font-bold text-slate-700">{act.title}</td>
-                              <td className="py-2.5 px-4">
-                                <span className={`text-[10px] font-semibold uppercase font-mono px-2 py-0.5 rounded-full ${
-                                  act.category === 'transport' ? 'bg-amber-50 text-amber-700' :
-                                  act.category === 'energy' ? 'bg-sky-50 text-sky-700' :
-                                  act.category === 'food' ? 'bg-emerald-50 text-emerald-700' : 'bg-purple-50 text-purple-700'
+                          {filteredActivities.map((act) => {
+                            const facility = (profile.facilities || []).find(f => f.id === act.facilityId);
+                            return (
+                              <tr key={act.id} className="hover:bg-slate-50/50 transition-colors">
+                                <td className="py-2.5 px-4 text-slate-500 font-mono">{act.date}</td>
+                                <td className="py-2.5 px-4">
+                                  <div className="font-bold text-slate-700">{act.title}</div>
+                                  <div className="text-[10px] text-slate-400 font-medium flex items-center mt-0.5">
+                                    <Building className="w-3 h-3 mr-1" />
+                                    {facility ? `${facility.name} (${facility.type})` : 'General Operations'}
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-4">
+                                  <span className={`text-[10px] font-semibold uppercase font-mono px-2 py-0.5 rounded-full ${
+                                    act.category === 'transport' ? 'bg-amber-50 text-amber-700' : 'bg-sky-50 text-sky-700'
+                                  }`}>
+                                    {act.category}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-4 text-right font-medium text-slate-500">
+                                  {act.value} {act.unit}
+                                </td>
+                                <td className={`py-2.5 px-4 text-right font-bold font-mono ${
+                                  act.emissionsKg < 0 ? 'text-emerald-600' : 'text-slate-800'
                                 }`}>
-                                  {act.category}
-                                </span>
-                              </td>
-                              <td className="py-2.5 px-4 text-right font-medium text-slate-500">
-                                {act.value} {act.unit}
-                              </td>
-                              <td className={`py-2.5 px-4 text-right font-bold font-mono ${
-                                act.emissionsKg < 0 ? 'text-emerald-600' : 'text-slate-800'
-                              }`}>
-                                {act.emissionsKg.toFixed(1)}
-                              </td>
-                              <td className="py-2.5 px-4 text-center">
-                                <button
-                                  onClick={() => handleDeleteActivity(act.id)}
-                                  className="text-slate-400 hover:text-rose-600 p-1 rounded-md transition-colors cursor-pointer"
-                                  title="Delete item"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
+                                  {act.emissionsKg.toFixed(1)}
+                                </td>
+                                <td className="py-2.5 px-4 text-center">
+                                  <button
+                                    onClick={() => handleDeleteActivity(act.id)}
+                                    className="text-slate-400 hover:text-rose-600 p-1 rounded-md transition-colors cursor-pointer"
+                                    title="Delete item"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     )}

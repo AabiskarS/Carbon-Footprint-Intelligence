@@ -1,10 +1,12 @@
-import { useState, useMemo } from 'react';
-import { ActivityCategory, CARBON_FACTORS } from '../types';
-import { Leaf, Car, Zap, Flame, ShoppingBag, PlusCircle } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { ActivityCategory, CARBON_FACTORS, Facility } from '../types';
+import { Leaf, Car, Zap, PlusCircle, Building } from 'lucide-react';
 
 interface AddActivityFormProps {
+  facilities: Facility[];
   onAddActivity: (activity: {
     category: ActivityCategory;
+    facilityId: string;
     title: string;
     value: number;
     unit: string;
@@ -50,12 +52,22 @@ const TRANSPORT_UNITS: Record<string, TransportUnitConfig[]> = {
   ],
 };
 
-export default function AddActivityForm({ onAddActivity }: AddActivityFormProps) {
+export default function AddActivityForm({ facilities, onAddActivity }: AddActivityFormProps) {
   const [category, setCategory] = useState<ActivityCategory>('transport');
+  const [selectedFacilityId, setSelectedFacilityId] = useState<string>(() => {
+    return facilities[0]?.id || '';
+  });
   const [selectedSubtype, setSelectedSubtype] = useState<string>('car-gasoline');
   const [amount, setAmount] = useState<number>(15);
   const [customTitle, setCustomTitle] = useState<string>('');
   const [selectedUnitKey, setSelectedUnitKey] = useState<string>('miles');
+
+  // Sync selectedFacilityId when list updates
+  useEffect(() => {
+    if (facilities.length > 0 && !facilities.some(f => f.id === selectedFacilityId)) {
+      setSelectedFacilityId(facilities[0].id);
+    }
+  }, [facilities, selectedFacilityId]);
 
   // Helper to determine the key of TRANSPORT_UNITS based on selected transport subtype
   const getTransportUnitType = (subtype: string): string => {
@@ -71,37 +83,22 @@ export default function AddActivityForm({ onAddActivity }: AddActivityFormProps)
     switch (category) {
       case 'transport':
         return [
-          { key: 'car-gasoline', label: 'Gasoline Car' },
-          { key: 'car-diesel', label: 'Diesel Car' },
-          { key: 'car-hybrid', label: 'Hybrid/Alternative Car' },
-          { key: 'car-electric', label: 'Electric Car (EV)' },
-          { key: 'public-transit', label: 'Public Bus/Train/Metro' },
-          { key: 'flight-short', label: 'Short flight (<3 hrs)' },
-          { key: 'flight-long', label: 'Long-haul flight (>=3 hrs)' },
+          { key: 'car-gasoline', label: 'Gasoline Car/Van fleet' },
+          { key: 'car-diesel', label: 'Diesel Car/Van fleet' },
+          { key: 'car-hybrid', label: 'Hybrid Commuter Pool' },
+          { key: 'car-electric', label: 'Electric Delivery Vehicle (EV)' },
+          { key: 'public-transit', label: 'Public Bus/Metro Transit' },
+          { key: 'flight-short', label: 'Short business flight (<3 hrs)' },
+          { key: 'flight-long', label: 'Long business flight (>=3 hrs)' },
         ];
       case 'energy':
         return [
-          { key: 'electricity-standard', label: 'Coal/Gas Electricity Grid (per kWh)', defaultVal: 80 },
-          { key: 'electricity-green', label: 'Certified Clean Renewable (per kWh)', defaultVal: 120 },
-          { key: 'electricity-solar', label: 'Rooftop Solar Offset (per kWh)', defaultVal: 100 },
-          { key: 'heating-gas', label: 'Natural Gas Heating (per therm)', defaultVal: 52 },
-          { key: 'heating-oil', label: 'Heating Fuel Oil (per gallon)', defaultVal: 30 },
-          { key: 'heating-heatpump', label: 'Geothermal/Heat Pump (per kWh)', defaultVal: 90 },
-        ];
-      case 'food':
-        return [
-          { key: 'diet-vegan', label: 'Strict Vegan/Plant meal', defaultVal: 3 },
-          { key: 'diet-vegetarian', label: 'Vegetarian Meal', defaultVal: 3 },
-          { key: 'diet-low-meat', label: 'Flexitarian/Low-meat meal', defaultVal: 2 },
-          { key: 'diet-standard', label: 'Standard Average meal', defaultVal: 2 },
-          { key: 'diet-heavy-meat', label: 'Heavy Red Meat (Beef/Lamb)', defaultVal: 1 },
-        ];
-      case 'purchases':
-        return [
-          { key: 'purchase-clothing', label: 'New Clothing Item', defaultVal: 2 },
-          { key: 'purchase-electronics', label: 'Electronics (Laptop/Phone)', defaultVal: 1 },
-          { key: 'waste-trash', label: 'Bag of Unsorted Landfill Trash', defaultVal: 4 },
-          { key: 'recycling-credit', label: 'Binned Recyclable Bag (Credit)', defaultVal: 3 },
+          { key: 'electricity-standard', label: 'Coal/Gas Electricity Grid (per kWh)', defaultVal: 200 },
+          { key: 'electricity-green', label: 'Certified Clean Renewable (per kWh)', defaultVal: 350 },
+          { key: 'electricity-solar', label: 'Rooftop Solar Generation (per kWh)', defaultVal: 300 },
+          { key: 'heating-gas', label: 'Natural Gas Facility Heating (per therm)', defaultVal: 150 },
+          { key: 'heating-oil', label: 'Heating Fuel Oil (per gallon)', defaultVal: 100 },
+          { key: 'heating-heatpump', label: 'Geothermal/Heat Pump (per kWh)', defaultVal: 250 },
         ];
     }
   }, [category]);
@@ -109,9 +106,7 @@ export default function AddActivityForm({ onAddActivity }: AddActivityFormProps)
   // Sync subtype key when category shifts
   const handleCategorySelection = (cat: ActivityCategory) => {
     setCategory(cat);
-    const available = cat === 'transport' ? 'car-gasoline' :
-                      cat === 'energy' ? 'electricity-standard' :
-                      cat === 'food' ? 'diet-standard' : 'waste-trash';
+    const available = cat === 'transport' ? 'car-gasoline' : 'electricity-standard';
     setSelectedSubtype(available);
     
     if (cat === 'transport') {
@@ -120,9 +115,7 @@ export default function AddActivityForm({ onAddActivity }: AddActivityFormProps)
     } else {
       const def = CARBON_FACTORS[available];
       if (def) {
-        if (cat === 'energy') setAmount(75);
-        else if (cat === 'food') setAmount(1);
-        else setAmount(1);
+        setAmount(150);
       }
     }
   };
@@ -148,8 +141,8 @@ export default function AddActivityForm({ onAddActivity }: AddActivityFormProps)
       factorToMiles: 1,
       defaultVal: 1,
       minVal: 1,
-      maxVal: 50,
-      step: 1
+      maxVal: 2000,
+      step: 10
     };
   }, [category, selectedSubtype, selectedUnitKey, transportUnitOptions]);
 
@@ -169,8 +162,10 @@ export default function AddActivityForm({ onAddActivity }: AddActivityFormProps)
   const handlePlusActivity = (e: React.FormEvent) => {
     e.preventDefault();
     const finalTitle = customTitle.trim() || activeFactorObj.label;
+    
     onAddActivity({
       category,
+      facilityId: selectedFacilityId,
       title: finalTitle,
       value: amount,
       unit: category === 'transport' ? activeUnitObj.key : activeFactorObj.units,
@@ -186,71 +181,69 @@ export default function AddActivityForm({ onAddActivity }: AddActivityFormProps)
           <Leaf className="w-5 h-5" />
         </div>
         <div>
-          <h3 className="text-lg font-semibold text-slate-800 tracking-tight">Log Carbon Impact</h3>
-          <p className="text-xs text-slate-400">Record a recent activity to compute real-time greenhouse metrics</p>
+          <h3 className="text-lg font-semibold text-slate-800 tracking-tight">Log Corporate Carbon Impact</h3>
+          <p className="text-xs text-slate-400">Record a recent activity of transport fleet or facilities</p>
         </div>
       </div>
 
       {/* Category selector capsules */}
-      <div className="grid grid-cols-4 gap-2 mb-6" id="category-selector-tabs">
+      <div className="grid grid-cols-2 gap-3 mb-6" id="category-selector-tabs">
         <button
           type="button"
           onClick={() => handleCategorySelection('transport')}
-          className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all text-xs font-medium cursor-pointer ${
+          className={`flex flex-col items-center justify-center p-3.5 rounded-xl border transition-all text-xs font-semibold cursor-pointer ${
             category === 'transport'
               ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
               : 'border-slate-100 text-slate-500 hover:bg-slate-50'
           }`}
         >
           <Car className="w-4 h-4 mb-1" />
-          Transport
+          Transport Fleet
         </button>
         <button
           type="button"
           onClick={() => handleCategorySelection('energy')}
-          className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all text-xs font-medium cursor-pointer ${
+          className={`flex flex-col items-center justify-center p-3.5 rounded-xl border transition-all text-xs font-semibold cursor-pointer ${
             category === 'energy'
               ? 'bg-sky-50 text-sky-700 border-sky-200'
               : 'border-slate-100 text-slate-500 hover:bg-slate-50'
           }`}
         >
           <Zap className="w-4 h-4 mb-1" />
-          Household
-        </button>
-        <button
-          type="button"
-          onClick={() => handleCategorySelection('food')}
-          className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all text-xs font-medium cursor-pointer ${
-            category === 'food'
-              ? 'bg-amber-50 text-amber-700 border-amber-200'
-              : 'border-slate-100 text-slate-500 hover:bg-slate-50'
-          }`}
-        >
-          <Flame className="w-4 h-4 mb-1" />
-          Diet & Food
-        </button>
-        <button
-          type="button"
-          onClick={() => handleCategorySelection('purchases')}
-          className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all text-xs font-medium cursor-pointer ${
-            category === 'purchases'
-              ? 'bg-purple-50 text-purple-700 border-purple-200'
-              : 'border-slate-100 text-slate-500 hover:bg-slate-50'
-          }`}
-        >
-          <ShoppingBag className="w-4 h-4 mb-1" />
-          Lifestyle
+          Facility Energy
         </button>
       </div>
 
       <form onSubmit={handlePlusActivity} className="space-y-4">
+        {/* Associated Facility select */}
+        <div>
+          <label className="block text-xs font-semibold text-slate-500 mb-1.5 flex items-center">
+            <Building className="w-3.5 h-3.5 mr-1" /> Associated Active Facility
+          </label>
+          <select
+            className="w-full text-slate-705 text-sm px-3 py-2 bg-slate-50 rounded-xl border border-slate-200 outline-none focus:bg-white focus:border-emerald-500 transition-all cursor-pointer font-medium"
+            value={selectedFacilityId}
+            onChange={(e) => setSelectedFacilityId(e.target.value)}
+            required
+          >
+            {facilities.map((fac) => (
+              <option key={fac.id} value={fac.id}>
+                {fac.name} ({fac.type.replace('-', ' ')})
+              </option>
+            ))}
+            {facilities.length === 0 && (
+              <option value="">(No facilities added yet. Please configuration in profile.)</option>
+            )}
+          </select>
+        </div>
+
         {/* Custom description option */}
         <div>
-          <label className="block text-xs font-medium text-slate-500 mb-1.5">Custom Title (Optional)</label>
+          <label className="block text-xs font-semibold text-slate-500 mb-1.5">Activity Description (Optional)</label>
           <input
             type="text"
             className="w-full text-slate-700 text-sm px-3 py-2 bg-slate-50 rounded-xl border border-slate-200 outline-none focus:border-emerald-500 focus:bg-white transition-all duration-200 placeholder-slate-400"
-            placeholder={`e.g., Commute to work via hybrid car`}
+            placeholder="e.g. Weekly dispatch deliveries route Porto-Braga"
             value={customTitle}
             onChange={(e) => setCustomTitle(e.target.value)}
           />
@@ -258,9 +251,9 @@ export default function AddActivityForm({ onAddActivity }: AddActivityFormProps)
 
         {/* Subtype Dropdown */}
         <div>
-          <label className="block text-xs font-medium text-slate-500 mb-1.5">Transportation Method</label>
+          <label className="block text-xs font-semibold text-slate-500 mb-1.5">Emission source type</label>
           <select
-            className="w-full text-slate-700 text-sm px-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200 focus:bg-white focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all cursor-pointer"
+            className="w-full text-slate-700 text-sm px-3 py-2 bg-slate-50 rounded-xl border border-slate-200 focus:bg-white focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all cursor-pointer font-semibold"
             value={selectedSubtype}
             onChange={(e) => {
               const newSubtype = e.target.value;
@@ -276,9 +269,7 @@ export default function AddActivityForm({ onAddActivity }: AddActivityFormProps)
               } else {
                 const def = CARBON_FACTORS[newSubtype];
                 if (def) {
-                  if (category === 'energy') setAmount(75);
-                  else if (category === 'food') setAmount(1);
-                  else setAmount(1);
+                  setAmount(250);
                 }
               }
             }}
@@ -294,7 +285,7 @@ export default function AddActivityForm({ onAddActivity }: AddActivityFormProps)
         {/* Dynamic Measurement Units for Transport */}
         {category === 'transport' && transportUnitOptions.length > 0 && (
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1.5">Select Distance / Measurement Type</label>
+            <label className="block text-xs font-semibold text-slate-500 mb-1.5">Select Distance / Measurement Type</label>
             <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-50 rounded-xl border border-slate-200">
               {transportUnitOptions.map((unitOpt) => (
                 <button
@@ -304,7 +295,7 @@ export default function AddActivityForm({ onAddActivity }: AddActivityFormProps)
                     setSelectedUnitKey(unitOpt.key);
                     setAmount(unitOpt.defaultVal);
                   }}
-                  className={`text-center text-[11px] py-2 px-1.5 rounded-lg font-medium transition-all cursor-pointer ${
+                  className={`text-center text-[10px] py-1.5 px-1 rounded-lg font-semibold transition-all cursor-pointer ${
                     selectedUnitKey === unitOpt.key
                       ? 'bg-emerald-600 text-white shadow-sm'
                       : 'text-slate-600 hover:text-slate-800 hover:bg-slate-200'
@@ -320,7 +311,7 @@ export default function AddActivityForm({ onAddActivity }: AddActivityFormProps)
         {/* Live amount adjustment */}
         <div>
           <div className="flex justify-between items-center mb-2">
-            <span className="text-xs font-medium text-slate-500">Usage Amount</span>
+            <span className="text-xs font-semibold text-slate-500">Resource usage quantity</span>
             <div className="flex items-center space-x-1.5">
               <input
                 type="number"
@@ -332,7 +323,7 @@ export default function AddActivityForm({ onAddActivity }: AddActivityFormProps)
                   const val = parseFloat(e.target.value);
                   setAmount(isNaN(val) ? 0 : val);
                 }}
-                className="w-28 text-right bg-slate-50 hover:bg-slate-100/80 focus:bg-white text-sm font-extrabold text-slate-800 font-mono py-1 px-2 border border-slate-200 rounded-lg outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none transition-all"
+                className="w-28 text-right bg-slate-50 hover:bg-slate-100/80 focus:bg-white text-sm font-extrabold text-slate-800 font-mono py-1 px-2 border border-slate-200 rounded-lg outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
               />
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider font-mono bg-slate-100 px-2 py-1 rounded">
                 {category === 'transport' ? activeUnitObj.key : activeFactorObj.units}
@@ -341,17 +332,17 @@ export default function AddActivityForm({ onAddActivity }: AddActivityFormProps)
           </div>
           <input
             type="range"
-            min={category === 'transport' ? activeUnitObj.minVal : (category === 'energy' ? 5 : 1)}
-            max={category === 'transport' ? Math.max(activeUnitObj.maxVal, amount) : (category === 'energy' ? Math.max(1000, amount) : Math.max(20, amount))}
+            min={category === 'transport' ? activeUnitObj.minVal : 5}
+            max={category === 'transport' ? Math.max(activeUnitObj.maxVal, amount) : Math.max(2500, amount)}
             value={amount}
-            step={category === 'transport' ? activeUnitObj.step : (category === 'energy' ? 5 : 1)}
+            step={category === 'transport' ? activeUnitObj.step : 25}
             onChange={(e) => setAmount(Number(e.target.value))}
             className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-emerald-500 outline-none"
           />
           <div className="flex justify-between text-[10px] text-slate-400 mt-1">
             <span>Min</span>
-            <span>Type any amount above or adjust slider</span>
-            <span>Max auto-scales</span>
+            <span>Type value or adjust slider</span>
+            <span>Uncapped fields</span>
           </div>
         </div>
 
@@ -385,13 +376,13 @@ export default function AddActivityForm({ onAddActivity }: AddActivityFormProps)
         {/* Add Submission Button */}
         <button
           type="submit"
-          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm py-3 px-4 rounded-xl shadow-md cursor-pointer hover:shadow-emerald-100 active:scale-[0.98] transition-all flex items-center justify-center space-x-2"
+          disabled={facilities.length === 0}
+          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm py-3 px-4 rounded-xl shadow-md cursor-pointer hover:shadow-emerald-100 active:scale-[0.98] transition-all flex items-center justify-center space-x-2 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed disabled:shadow-none"
         >
           <PlusCircle className="w-4 h-4" />
-          <span>Add Activity to Journey History</span>
+          <span>Add Corporate Activity to Logs</span>
         </button>
       </form>
     </div>
   );
 }
-
